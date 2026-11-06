@@ -99,11 +99,11 @@ function consoleList(){return info&&info.consoles||[]}
 // through this, so a tile and its index always agree
 function tileList(){const L=consoleList();return [...L.filter(c=>sysCfg(c.id).enabled!==false),...L.filter(c=>sysCfg(c.id).enabled===false)]}
 function sysCfg(id){cfg.systems=cfg.systems||{};const c=cfg.systems[id]||(cfg.systems[id]={enabled:true,emulator:"",gameArgs:"",emulatorArgs:"",romDirs:[],artDir:"",bootOnLaunch:true});if(!Array.isArray(c.romDirs))c.romDirs=[];return c}
-function conState(c){const s=sysCfg(c.id);if(s.enabled===false)return "off";return s.emulator&&s.romDirs.length?"ok":s.emulator||s.romDirs.length?"warn":""}
+function conState(c){const s=sysCfg(c.id);if(s.enabled===false)return "off";if(c.standalone)return "ok";return s.emulator&&s.romDirs.length?"ok":s.emulator||s.romDirs.length?"warn":""}
 // (games counted on the last scan: "13 games"; until a scan has run, the folders)
 const gameCount=id=>{const m=shelf("gameCounts");return m&&typeof m[id]==="number"?m[id]:null};
 function conStatus(c){const s=sysCfg(c.id),d=conState(c),n=s.romDirs.length,g=gameCount(c.id);
-  return d==="off"?"Shelf hidden":d==="ok"?(g!=null?`Ready · ${g} game${g===1?"":"s"}`:`Ready · ${n} folder${n===1?"":"s"}`):d==="warn"?(s.emulator?"Add a games folder":`Needs ${c.emulatorName||"its emulator"}`):"Not set up"}
+  return d==="off"?"Shelf hidden":c.standalone?(g!=null?`Ready · ${g} game${g===1?"":"s"}`:"Standalone games") :d==="ok"?(g!=null?`Ready · ${g} game${g===1?"":"s"}`:`Ready · ${n} folder${n===1?"":"s"}`):d==="warn"?(s.emulator?"Add a games folder":`Needs ${c.emulatorName||"its emulator"}`):"Not set up"}
 // a program shown by its name ("Dolphin.exe" → "Dolphin"); the whole path stays in the row's explanation
 const progName=p=>String(p||"").split(/[\\/]/).pop().replace(/\.exe$/i,"");
 const folderName=p=>{const L=String(p||"").split(/[\\/]/).filter(Boolean);return L.slice(-2).join(" › ")||String(p||"")};
@@ -158,7 +158,7 @@ function build(){
     T("Show installed Epic Games","pc.epic",true,"Adds the games the Epic Games Launcher has installed to the PC shelf. They start through the Epic launcher, so its sign-in and cloud saves work as usual.",{rescan:true,keys:"epic games store fortnite launcher",sub:()=>(pcSt||setTimeout(pcStatus,0),pcSt&&pcSt.epic!=null)?{text:pcSt.epic?`${pcSt.epic} installed`:"None installed"}:null}),
   ]},
   // (beta.4) the Custom shelf: Quiver Launcher's apps (recomps, ports) and any program added by hand
-  {g:"Games",id:"custom",name:"Custom games",ic:"pc",lead:"Recomps, PC ports and any other program, on a Custom shelf of their own.",rows:[{t:"dyn",fn:customRows}]},
+  {g:"Games",id:"custom",name:"Custom games",ic:"pc",lead:"Add standalone programs and choose PC, Custom, or a console platform shelf. Quiver Launcher games stay on Custom.",rows:[{t:"dyn",fn:customRows}]},
   {g:"Games",id:"apps",name:"Apps",ic:"apps",dot:()=>Object.values(cfg.apps||{}).some(a=>a&&a.enabled!==false&&a.path)?"ok":null,lead:"Stremio and Nuvio, launched from the Media shelf.",rows:appRows},
   {g:"Look & sound",id:"display",name:"Display",ic:"display",lead:"How the shelf looks from the couch.",rows:[
     C("Interface size","ui.uiScale",[[1,"Standard"],[1.15,"Large"],[1.3,"Extra large"]],1,"Bigger text and buttons for a TV across the room.",{more:"Large suits most 55\" and bigger TVs at 2–3 m. Extra large for very far seating.",live:()=>fit(),keys:"zoom text big small scale"}),
@@ -455,6 +455,13 @@ function hiddenRows(){if(!(window.Shelf&&Shelf.hiddenList))return [];const L=hid
 // one console's page
 function conPages(id){
   const def=consoleList().find(c=>c.id===id)||{id,name:id,emulatorName:"Emulator",exeNames:["emulator.exe"]},c=sysCfg(id),p=`systems.${id}.`,emu=def.emulatorName||"Emulator",exe=(def.exeNames||["emulator.exe"])[0];
+  if(def.standalone){
+    const rows=[T("Show this shelf",p+"enabled",true,"Turn this shelf off without losing its settings.",{rescan:true,keys:"hide shelf console off",sub:()=>({text:conStatus(def),cls:conState(def)==="ok"?"ok":""})}),
+      H("Standalone games"),
+      A("Add or assign a game","Open","Add an .exe in Settings → Custom games, then choose Xbox One under Platform. Boxshelf starts the executable directly; no emulator is involved.",()=>goSecId("custom"),{ns:true,keys:"add exe port recomp game"})];
+    return {main:{g:"Games",id:"console",sys:id,name:def.name,ic:"games",lead:`A shelf for Xbox One ports and recompilations that run as PC executables. No emulator is needed.`,rows},
+      adv:{g:"Games",id:"console",sys:id,name:"Standalone games",lead:"Xbox One entries on this shelf are started directly from their executable.",rows}};
+  }
   // the shelf on / off first, with where it stands ("Ready · 13 games", "Needs Dolphin"); then the emulator and games
   // folders by name (the whole path is in the explanation on the right)
   const rows=[T("Show this shelf",p+"enabled",true,"Turn a console off without losing its settings.",{rescan:true,keys:"hide shelf console off",sub:()=>{const st=conState(def);return {text:conStatus(def),cls:st==="ok"?"ok":st==="warn"?"warn":""}}}),
@@ -511,7 +518,7 @@ function conPages(id){
 }
 const consolePage=id=>conPages(id).main,conAdvPage=id=>conPages(id).adv;
 // the console order: A picks a shelf up, up / down moves it, A (or B) puts it down
-function orderList(){const known=[...consoleList().filter(c=>sysCfg(c.id).enabled!==false).map(c=>[c.id,c.name]),...(cfg.steam&&cfg.steam.enabled!==false?[["pc","PC"]]:[]),["media","Media"]];
+function orderList(){const hasPcExecutable=(cfg.pc&&cfg.pc.custom||[]).some(g=>g&&g.platform==="pc");const known=[...consoleList().filter(c=>sysCfg(c.id).enabled!==false).map(c=>[c.id,c.name]),...(cfg.steam&&cfg.steam.enabled!==false||hasPcExecutable?[["pc","PC"]]:[]),["media","Media"]];
   const saved=(cfg.ui.shelfOrder||[]).filter(id=>known.some(k=>k[0]===id));return {known,order:[...saved,...known.map(k=>k[0]).filter(id=>!saved.includes(id))]}}
 function orderPage(){const {known,order}=orderList(),nm=id=>(known.find(k=>k[0]===id)||[id,id])[1];
   return {g:"Boxshelf",id:"order",name:"Console order",ic:"shelf",lead:"The order of the shelves along the top. Home always comes first. Pick one up, move it, put it down.",
@@ -672,7 +679,8 @@ function customRows(){if(!pcSt)setTimeout(pcStatus,0);cfg.pc=cfg.pc||{epic:true,
     // (beta.5) the name row is kept per game (the text editor finds its row by identity: a new object each draw never edited)
     let nr=customNameRows.get(c);if(!nr){nr=X(c.title||"Game","",`Its name on the shelf. Program: ${c.exe}`,{get:()=>c.title||"",set:v=>{c.title=String(v||"").slice(0,120);nr.label=c.title||"Game"},rescan:true,ns:true,keys:"rename custom game",sub:()=>({text:folderName(c.exe)})});customNameRows.set(c,nr)}
     rows.push(nr);
-    rows.push(C("Platform",`pc.custom.${i}.platform`,()=>[["custom","Custom"],...consoleList().map(s=>[s.id,s.name])],"custom","Puts this executable on the selected platform shelf. Boxshelf starts the EXE directly; it does not pass it to that platform's emulator.",{rescan:true,keys:"assign platform shelf console category"}));
+    rows.push(X("Launch arguments",`pc.custom.${i}.args`,"Optional arguments passed to this program when it starts, for example -dx12. Quote values that contain spaces.",{get:()=>c.args||"",set:v=>{c.args=String(v||"").slice(0,1000)},d:"",rescan:true,ns:true,keys:"launch command arguments flags options dx12",mono:true}));
+    rows.push(C("Platform",`pc.custom.${i}.platform`,()=>[["custom","Custom"],["pc","PC"],...consoleList().map(s=>[s.id,s.name])],"custom","Puts this executable on the selected shelf. Boxshelf starts the EXE directly; selecting a console does not run it through an emulator.",{rescan:true,keys:"assign platform shelf console category PC Xbox One"}));
     rows.push(A("Remove "+(c.title||"this game"),"Remove","Takes it off the Custom shelf. Nothing is deleted.",()=>twice("pcx:"+i,()=>{pc.custom.splice(i,1);changed({rescan:true});toast("Removed from the Custom shelf (nothing was deleted)")},"Press again to remove it"),{ns:true,ask:"pcx:"+i}))});
   return rows}
 const sw2Low=x=>String(x||"").toLowerCase();
@@ -1941,7 +1949,7 @@ function renderInfo(){const r=curRow(),s=sec();E.info.classList.toggle("open",in
   if(!r){E.ih.textContent=s.name;E.ip.textContent=s.lead||"";E.im.textContent="";E.is.innerHTML="";E.it.innerHTML=`<div class="pv">${device==="pad"?"Right or "+btnName("a"):"→ or Enter"} opens this page</div>`;return}
   const R=r.t==="result"?r.row:r,c=r.t==="consoles"?tileList()[ci]:null;
   E.ih.textContent=c?c.name:r.label;
-  E.ip.textContent=c?`Uses ${c.emulatorName||"its emulator"}. ${conStatus(c)}.`:(r.info||"");
+  E.ip.textContent=c?`${c.standalone?"Standalone games; no emulator is needed.":`Uses ${c.emulatorName||"its emulator"}.`} ${conStatus(c)}.`:(r.info||"");
   if(c)st=stHtml(conState(c)==="ok"?"ok":conState(c)==="warn"?"warn":"none",conStatus(c));
   E.im.textContent=R&&(typeof R.more==="function"?R.more():R.more)||"";
   if(R&&R.status){const x=svcState(R.status);st=svcChip(R.status);if(x.at&&(x.state==="ok"||x.state==="fail"))meta.push(["",`Checked ${when(x.at)}`])}

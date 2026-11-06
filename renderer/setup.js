@@ -47,7 +47,7 @@ function sectionList(){
 }
 
 function dotFor(sec){
-  if(sec.console){const c=cfg.systems[sec.id];if(!c.enabled)return"off";return c.emulator&&c.romDirs.length?"ok":c.emulator||c.romDirs.length?"warn":""}
+  if(sec.console){const c=cfg.systems[sec.id];if(!c.enabled)return"off";if(sec.console.standalone)return"ok";return c.emulator&&c.romDirs.length?"ok":c.emulator||c.romDirs.length?"warn":""}
   if(sec.id==="steam")return !cfg.steam.enabled?"off":cfg.steam.path?"ok":"";
   if(sec.id==="media")return Object.values(cfg.apps).some(a=>a.enabled&&a.path)?"ok":"";
   if(sec.id==="pick")return pickItems().some(x=>x.on())?"ok":"";
@@ -370,6 +370,12 @@ function applyLook(){
 
 function consoleSection(b,def){
   const c=cfg.systems[def.id];
+  if(def.standalone){
+    head(b,"Standalone games",def.name,`A shelf for ${def.name} games that run as PC executables. No emulator or ROM folder is needed.`);
+    b.append(card("Shelf","",toggle(`Show the ${def.name} shelf`,c.enabled,v=>{c.enabled=v},"en-"+def.id)),
+      card("Games","",el("div",{class:"hint-text",text:"After setup, add an executable in Settings → Custom games and choose "+def.name+" under Platform. Boxshelf starts it directly."})));
+    return;
+  }
   head(b,def.emulatorName,def.name,CONSOLE_HELP[def.id]);
   b.append(card("Shelf","",toggle(`Show the ${def.name} shelf`,c.enabled,v=>{c.enabled=v},"en-"+def.id)));
 

@@ -165,7 +165,12 @@ const CONSOLES = [
     ['gamegear', 'Game Gear', 'RetroArch', [], [], ['gamegear', 'game gear', 'gg'], ['gg', 'zip', '7z'], '', 'genesis_plus_gx'],
     // Flycast 2.7 has no fullscreen option to pass: the Dreamcast starts in RetroArch's Flycast core unless Flycast itself is chosen
     ['dreamcast', 'Dreamcast', 'RetroArch', ['flycast.exe'], ['{app}\\Flycast', '{app}\\flycast'], ['dreamcast', 'dc'], ['chd', 'gdi', 'cdi', 'cue', 'm3u'], '"{rom}"', 'flycast'],
-  ])
+  ]),
+  {
+    id: 'xboxone', name: 'Xbox One', emulatorName: '', standalone: true,
+    exeNames: [], emulatorFolders: [], romFolderNames: [], extensions: [],
+    gameArgs: '', emulatorArgs: '', coverSeconds: 0
+  }
 ];
 // (beta.6) one retro shelf: [id, name, emulator name, standalone exe names, its folders, ROM folder names, extensions,
 // standalone launch options, RetroArch core, standalone first?]. RetroArch's usual homes are searched for every one of them;

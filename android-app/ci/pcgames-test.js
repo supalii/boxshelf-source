@@ -47,10 +47,14 @@ module.exports = async function pcGamesPass({ browser, base, check, newPage }) {
     // games added by hand: a missing program is left out; the config keeps clean entries only
     const c = pcg.customGames([{ id: 'a', title: 'Mine', exe: path.join(q3, 'QuiverLauncher.exe'), platform: 'ps2' }, { id: 'b', title: 'Gone', exe: path.join(tmp, 'gone.exe') }]);
     const config = require(path.join(root, 'main', 'config.js'));
-    const clean = config.normalize({ pc: { custom: [{ title: 'Ok', exe: 'C:\\x.exe', platform: 'ps2' }, { title: 'Bad platform', exe: 'C:\\y.exe', platform: 'not-a-console' }, { title: 'No exe' }, 'junk'], epic: 'yes' } }).pc;
+    const clean = config.normalize({ pc: { custom: [{ title: 'Ok', exe: 'C:\\x.exe', platform: 'ps2' }, { title: 'PC game', exe: 'C:\\y.exe', platform: 'pc', args: '-dx12' }, { title: 'Bad platform', exe: 'C:\\z.exe', platform: 'not-a-console' }, { title: 'No exe' }, 'junk'], epic: 'yes' } }).pc;
+    const launcher = require(path.join(root, 'main', 'launcher.js'));
     fs.rmSync(tmp, { recursive: true, force: true });
     check('PC games: a hand-added game keeps its console assignment, missing files and unknown platforms are excluded',
-      c.length === 1 && c[0].title === 'Mine' && c[0].platform === 'ps2' && clean.custom.length === 2 && clean.custom[0].exe === 'C:\\x.exe' && clean.custom[0].platform === 'ps2' && !clean.custom[1].platform && clean.epic === true, JSON.stringify({ c, clean }));
+      c.length === 1 && c[0].title === 'Mine' && c[0].platform === 'ps2' && clean.custom.length === 3 && clean.custom[0].exe === 'C:\\x.exe' && clean.custom[0].platform === 'ps2' && clean.custom[1].platform === 'pc' && clean.custom[1].args === '-dx12' && !clean.custom[2].platform && clean.epic === true, JSON.stringify({ c, clean }));
+    check('PC games: Xbox One is a standalone platform and launch arguments split into executable arguments',
+      require(path.join(root, 'main', 'systems.js')).CONSOLES.find(s => s.id === 'xboxone').standalone === true &&
+        JSON.stringify(launcher.buildArgs('-dx12 --profile "Palworld World"', '')) === JSON.stringify(['-dx12', '--profile', 'Palworld World']), JSON.stringify(launcher.buildArgs('-dx12 --profile "Palworld World"', '')));
   } catch (e) { check('PC games: module checks ran', false, e && e.stack ? e.stack.split('\n').slice(0, 2).join(' ') : e); }
 
   const { ctx, page, errors } = await newPage(browser, null);
@@ -95,15 +99,27 @@ module.exports = async function pcGamesPass({ browser, base, check, newPage }) {
       Setup.open({ page: 'custom' }); for (let i = 0; i < 40 && !row('Add a game'); i++) await w(150); await w(800);
       out.page = names(); out.quiverRow = (row('Quiver Launcher') || {}).textContent || '';
       row('Add a game').click(); await w(1200); out.added = (await cfg()).custom; out.after = names();
-      const platform = row('Platform'); if (platform) { platform.click(); for (let i = 0; i < 3; i++) { key('ArrowRight'); await w(150); } await w(800); }
+      const platform = row('Platform'); if (platform) { platform.click(); key('ArrowRight'); await w(500); }
+      const argRow = row('Launch arguments'); if (argRow) { argRow.click(); await w(150); const input = document.querySelector('.bss-edit'); if (input) { input.value = '-dx12'; input.dispatchEvent(new Event('input', { bubbles: true })); key('Enter'); }
+        else { for (const ch of '-dx12') { const k=[...document.querySelectorAll('.bss-key')].find(x=>x.textContent===ch); if(k)k.click(); await w(100); } const done=[...document.querySelectorAll('.bss-key')].find(x=>x.textContent==='Done'); if(done)done.click(); } await w(700); }
       out.assigned = ((await cfg()).custom || [])[0] && (await cfg()).custom[0].platform || '';
+      out.args = ((await cfg()).custom || [])[0] && (await cfg()).custom[0].args || '';
       if (window.Settings && Settings.isOpen && Settings.isOpen()) { await Settings.close(); await w(1500); }
       const word = () => (document.getElementById('sysWord') || {}).textContent || '';
-      for (let i = 0; i < 30 && !/Wii U/.test(word()); i++) { key('ArrowDown'); await w(250); }
+      for (let i = 0; i < 30 && !/^PC/.test(word().trim()); i++) { key('ArrowDown'); await w(250); }
       for (let i = 0; i < 20 && Shelf._qs().g !== 'program'; i++) { key('ArrowRight'); await w(250); }
       out.platformShelf = word(); out.platformGame = Shelf._qs().g;
-      if (out.platformGame === 'program') { key('Enter'); await w(1400); out.platformLaunch = (window.__pcLaunched || []).includes('custom-'+((await cfg()).custom[0]||{}).id); }
+      if (out.platformGame === 'program') { key('i'); await w(500); out.command = (document.getElementById('dCmd')||{}).textContent||''; key('i'); await w(300); key('Enter'); await w(1400); out.platformLaunch = (window.__pcLaunched || []).includes('custom-'+((await cfg()).custom[0]||{}).id); out.launchArgs=(window.__pcLaunches||[]).slice(-1)[0]||null; }
       for (let i = 0; i < 30 && Shelf.getMode() !== 'browse'; i++) await w(250);
+      Setup.open({ page: 'custom' }); for (let i = 0; i < 40 && !row('Platform'); i++) await w(150); await w(500);
+      const platformAgain=row('Platform'); if(platformAgain){platformAgain.click();for(let i=0;i<20&&(((await cfg()).custom||[])[0]||{}).platform!=='xboxone';i++){key('ArrowRight');await w(200)}}
+      out.xboxAssigned=((await cfg()).custom||[])[0]&&((await cfg()).custom||[])[0].platform||'';
+      if (window.Settings && Settings.isOpen && Settings.isOpen()) { await Settings.close(); await w(1200); }
+      const xboxTab=[...document.querySelectorAll('#tabs .tab')].find(t=>t.textContent.trim()==='Xbox One');if(xboxTab){xboxTab.click();await w(1400)}
+      for(let i=0;i<20&&Shelf._qs().g!=='program';i++){key('ArrowRight');await w(250)}
+      out.xboxShelf=word();out.xboxGame=Shelf._qs().g;
+      if(out.xboxGame==='program'){key('Enter');await w(1400);out.xboxLaunch=(window.__pcLaunches||[]).slice(-1)[0]||null}
+      for(let i=0;i<30&&Shelf.getMode()!=='browse';i++)await w(250);
       Setup.open({ page: 'custom' }); for (let i = 0; i < 40 && !row('Add a game'); i++) await w(150); await w(500);
       const rm = names().find(n => /^Remove /.test(n)); if (rm) { row(rm).click(); await w(300); row(rm).click(); await w(1200); }
       out.removed = (await cfg()).custom;
@@ -112,8 +128,10 @@ module.exports = async function pcGamesPass({ browser, base, check, newPage }) {
       st.pcPage.includes('Show installed Epic Games') && st.page.includes("Show Quiver's games") && st.page.includes('Add a game') && /Found/.test(st.quiverRow), JSON.stringify({ pc: st.pcPage, page: st.page, q: st.quiverRow }).slice(0, 500));
     check('PC games (Windows): Add a game puts the program on the Custom shelf named from its file; Remove (pressed twice) takes it off',
       (st.added || []).length === 1 && st.added[0].title === 'program' && /program\.exe$/.test(st.added[0].exe) && st.after.includes('program') && (st.removed || []).length === 0, JSON.stringify({ added: st.added, removed: st.removed }).slice(0, 400));
-    check('PC games (Windows): an executable can be assigned to Wii U, appears on that shelf and starts directly',
-      st.assigned === 'wiiu' && /Wii U/.test(st.platformShelf) && st.platformGame === 'program' && st.platformLaunch, JSON.stringify({ assigned: st.assigned, shelf: st.platformShelf, game: st.platformGame, launched: st.platformLaunch }));
+    check('PC games (Windows): a standalone executable can be assigned to PC with editable arguments, displayed as its command and launched with those arguments',
+      st.assigned === 'pc' && st.args === '-dx12' && /^PC/.test(st.platformShelf.trim()) && st.platformGame === 'program' && /program\.exe.*-dx12/.test(st.command) && st.platformLaunch && st.launchArgs && st.launchArgs.args === '-dx12', JSON.stringify({ assigned: st.assigned, args: st.args, shelf: st.platformShelf, game: st.platformGame, command: st.command, launch: st.launchArgs }));
+    check('PC games (Windows): Xbox One has a standalone shelf and starts assigned executables without an emulator',
+      st.xboxAssigned === 'xboxone' && /Xbox One/.test(st.xboxShelf) && st.xboxGame === 'program' && st.xboxLaunch && st.xboxLaunch.platform === 'xboxone' && st.xboxLaunch.args === '-dx12', JSON.stringify({ assigned: st.xboxAssigned, shelf: st.xboxShelf, game: st.xboxGame, launch: st.xboxLaunch }));
     // (beta.5) a PC game's cover picker: Details → Box art opens it with the options (SteamGridDB's, a picture of yours);
     // the arrows move, A uses one (by key), the picker closes and the shelf says so; opened again, Automatic cover is offered
     const cv = await page.evaluate(async () => { const w = ms => new Promise(r => setTimeout(r, ms));

@@ -19,6 +19,7 @@ const STYLE={
   ps3:{id:"ps3",rc:0.065,re:0.26,hue:221,ratio:0.787,depth:0.1,edge:.03,caseColor:"#203553",caseSide:"#16263f",spineInk:"#ffffff",band:{bg:"#0c0d10",fg:"#ffffff",label:"PS3"},spineBand:{bg:"#0c0d10",fg:"#ffffff",label:"PS3"},tint:["#24406e","#090f1e"],glow:"#7ab4ff"},
   ps2:{id:"ps2",rc:0.035,re:0.2,hue:226,ratio:0.711,depth:0.104,edge:.03,caseColor:"#0f1d55",caseSide:"#0a1440",spineInk:"#ffffff",band:{bg:"#0f1d55",fg:"#dfe6ff",label:"PS2"},spineBand:{bg:"#0f1d55",fg:"#dfe6ff",label:"PS2"},tint:["#1b2a7a","#070b24"],glow:"#8fa6ff"},
   x360:{id:"x360",rc:0.04,re:0.22,hue:115,ratio:0.711,depth:0.104,edge:.03,caseColor:"#1a7f1a",caseSide:"#0f5a12",spineInk:"#ffffff",band:{bg:"#107c10",fg:"#ffffff",label:"XBOX 360"},spineBand:{bg:"#107c10",fg:"#ffffff",label:"X360"},tint:["#145a16","#061a07"],glow:"#7ee87e"},
+  xboxone:{id:"xboxone",rc:0.04,re:0.22,hue:118,ratio:0.711,depth:0.104,edge:.03,caseColor:"#107c10",caseSide:"#0b580b",spineInk:"#ffffff",band:{bg:"#107c10",fg:"#ffffff",label:"XBOX ONE"},spineBand:{bg:"#107c10",fg:"#ffffff",label:"XBOX ONE"},tint:["#145a16","#061a07"],glow:"#7ee87e"},
   psp:{id:"psp",rc:0.055,re:0.24,hue:235,ratio:0.589,depth:0.14,edge:.03,caseColor:"#101014",caseSide:"#07070a",spineInk:"#e8e8f0",band:{bg:"#0a0a0d",fg:"#ffffff",label:"PSP"},spineBand:{bg:"#0a0a0d",fg:"#ffffff",label:"PSP"},tint:["#4a4f63","#0b0c12"],glow:"#cfd6ff"},
   n3ds:{id:"n3ds",rc:0.05,re:0.24,hue:352,ratio:1.127,depth:0.1,h:.64,edge:.03,caseColor:"#f4f4f6",caseSide:"#dcdde2",spineInk:"#3a3d45",band:{bg:"#ffffff",fg:"#d40f2a",label:"NINTENDO 3DS"},spineBand:{bg:"#ffffff",fg:"#d40f2a",label:"3DS"},tint:["#c0182e","#3a0710"],glow:"#ff7a8a"},
   pc:{id:"pc",rc:0.02,re:0.16,hue:207,ratio:.667,depth:.07,edge:.015,caseColor:"#1b1f27",caseSide:"#11141a",spineInk:"#dfe8f3",band:null,spineBand:{bg:"#11141a",fg:"#8fb4d9",label:"PC"},tint:["#1d4a6e","#0a121c"],glow:"#8fc3ff"},
@@ -27,7 +28,7 @@ const STYLE={
   home:{id:"home",rc:0.04,re:0.22,hue:268,ratio:.71,depth:.09,edge:.025,caseColor:"#1b1d27",caseSide:"#101218",spineInk:"#e8e8f0",band:{bg:"#1b1d27",fg:"#c9cfe0",label:"HOME"},spineBand:{bg:"#2a2d3a",fg:"#c9cfe0",label:"HOME"},tint:["#3b2f6e","#0a0b16"],glow:"#c9b8ff"},
   media:{id:"media",rc:0.03,re:0.18,hue:285,ratio:.71,depth:.06,edge:.02,caseColor:"#1a1c24",caseSide:"#0e0f14",spineInk:"#e8e8f0",band:{bg:"#1a1c24",fg:"#9aa3b8",label:"APP"},spineBand:{bg:"#2a2d38",fg:"#c8cede",label:"APP"},tint:["#2a3550","#0a0d16"],glow:"#b9a6ff"}
 };
-const WORDMARKS={home:["Home","Continue & favorites"],gc:["GameCube","Home console"],wii:["Wii","Motion console"],wiiu:["Wii U","Home console"],sw:["Switch","Hybrid console"],sw2:["Switch 2","Hybrid console"],psp:["PSP","Handheld"],ps3:["PS3","Home console"],ps4:["PS4","Home console"],ps5:["PS5","Home console"],x360:["Xbox 360","Home console"],n3ds:["3DS","Handheld"],ps2:["PS2","Home console"],pc:["PC","Steam & Epic library"],custom:["Custom","PC ports & recomps"],media:["Media","Streaming"]};
+const WORDMARKS={home:["Home","Continue & favorites"],gc:["GameCube","Home console"],wii:["Wii","Motion console"],wiiu:["Wii U","Home console"],sw:["Switch","Hybrid console"],sw2:["Switch 2","Hybrid console"],psp:["PSP","Handheld"],ps3:["PS3","Home console"],ps4:["PS4","Home console"],ps5:["PS5","Home console"],x360:["Xbox 360","Home console"],xboxone:["Xbox One","Standalone games"],n3ds:["3DS","Handheld"],ps2:["PS2","Home console"],pc:["PC","Steam, Epic & standalone games"],custom:["Custom","PC ports & recomps"],media:["Media","Streaming"]};
 if(window.BS_SYSTEMS_EXTRA){Object.assign(STYLE,BS_SYSTEMS_EXTRA.style||{});Object.assign(WORDMARKS,BS_SYSTEMS_EXTRA.wordmarks||{})} // extra shelves (renderer/systems-extra.js)
 const APP_HUE={stremio:265,nuvio:200};
 
@@ -807,7 +808,7 @@ function infoRows(g){
   if(g.kind==="setup")return [["Games found","None yet"],["Fix it in","Settings → "+s.name]];
   if(g.kind==="random")return [...(g.pick?[["Picked",g.pick.game.title],["Shelf",(g.pick.sh||shelves[g.pick.shelf]).name]]:[]),["Picks from",shuffleAll()?"Every shelf":"This shelf"],["Change","Settings → Shelf"]];
   if(g.kind==="app")return [["Type","Streaming app"],["Program",g.path],["Returns","When you close the app"]];
-  if(g.kind==="steam"){if(g.source!=="steam"&&g.source!=="epic")return [["Source",PC_SRC[g.source]||"Custom"],...(g.platform?[["Platform",s.name]]:[]),["Program",g.exe||""]];const si=g.info||{};return [...(si.release||si.year?[["Released",fmtRelease(si.release,si.year)]]:[]),...(si.dev?[["Developer",si.dev]]:[]),...(si.pub&&si.pub!==si.dev?[["Publisher",si.pub]]:[]),...(si.genres?[["Genre",si.genres.replace(/;/g,", ")]]:[]),...(si.metacritic?[["Metacritic",si.metacritic+" / 100"]]:[]),["Playtime",g.minutes?`${(g.minutes/60).toFixed(1)} hours`:"Not played yet"],["Last played",fmtDate(g.lastPlayed)],["Install size",fmtSize(g.sizeBytes)],["Steam ID",g.appid]];}
+  if(g.kind==="steam"){if(g.source!=="steam"&&g.source!=="epic")return [["Source",PC_SRC[g.source]||"Custom"],...(g.platform?[["Platform",g.platform==="pc"?"PC":s.name]]:[]),["Program",g.exe||""],...(g.args?[["Launch arguments",g.args]]:[])];const si=g.info||{};return [...(si.release||si.year?[["Released",fmtRelease(si.release,si.year)]]:[]),...(si.dev?[["Developer",si.dev]]:[]),...(si.pub&&si.pub!==si.dev?[["Publisher",si.pub]]:[]),...(si.genres?[["Genre",si.genres.replace(/;/g,", ")]]:[]),...(si.metacritic?[["Metacritic",si.metacritic+" / 100"]]:[]),["Playtime",g.minutes?`${(g.minutes/60).toFixed(1)} hours`:"Not played yet"],["Last played",fmtDate(g.lastPlayed)],["Install size",fmtSize(g.sizeBytes)],["Steam ID",g.appid]];}
   const i=g.info||{};const rows=[];
   if(i.release||i.year)rows.push(["Released",fmtRelease(i.release,i.year)]);
   if(i.dev)rows.push(["Developer",i.dev]);if(i.pub&&i.pub!==i.dev)rows.push(["Publisher",i.pub]);
@@ -826,7 +827,7 @@ function descFor(g){
   if(g.kind==="setup")return `No games found for ${s.name} yet. Opens its page in Settings, where you can pick the folder your games are in.`;
   if(g.kind==="emulator")return `Opens ${s.emulatorName} on its own so you can change controllers, graphics and other settings. Close it to come back here.`;
   if(g.kind==="app")return `Opens ${g.title}. Close it to come back to the shelf.`;
-  if(g.kind==="steam")return g.platform&&g.source==="custom"?`Assigned to ${s.name}. Boxshelf starts this executable directly, not through ${s.emulatorName}.`:PC_HOW[g.source]||"Starts through Steam, so updates, cloud saves and the Steam overlay work as usual.";
+  if(g.kind==="steam")return g.platform&&g.source==="custom"?g.platform==="pc"?"Assigned to the PC shelf. Boxshelf starts this executable directly.":`Assigned to ${s.name}. Boxshelf starts the executable directly${s.emulatorName?`; it is not passed to ${s.emulatorName}`:"; no emulator is involved"}.`:PC_HOW[g.source]||"Starts through Steam, so updates, cloud saves and the Steam overlay work as usual.";
   return g.kind==="rom"?"":`Opens ${g.title}.`;
 }
 function fillDetails(){
@@ -865,7 +866,7 @@ function fillDetails(){
   let cmd="";
   if(g.kind==="rom")cmd=`${quote(gameEmu(g)||s.emulator||s.emulatorName)} ${argsPreview(s.gameArgs,g.file)}`;
   else if(g.kind==="emulator")cmd=quote(s.emulator||"");
-  else if(g.kind==="steam")cmd=g.source&&g.source!=="steam"?(g.source==="epic"?"Epic Games Launcher":g.title):`steam://rungameid/${g.appid}`;
+  else if(g.kind==="steam")cmd=g.source&&g.source!=="steam"?(g.source==="epic"?"Epic Games Launcher":`${quote(g.exe||g.title)}${g.args?` ${g.args}`:""}`):`steam://rungameid/${g.appid}`;
   else if(g.kind==="app")cmd=quote(g.path);
   $("dCmd").textContent=cmd;$("dCmd").hidden=!cmd;
   const how=$("dHow");if(how){how.textContent=g.kind==="rom"?`Plays in ${s.emulatorName}${s.bootOnLaunch&&!s.useIpl&&((themes[s.id]||{}).boot||s.insertAnim===false)?" after the boot "+((themes[s.id]||{}).boot?"video":"intro"):""}. Close the emulator to come back here.`:"";how.hidden=g.kind!=="rom"}

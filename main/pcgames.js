@@ -13,7 +13,7 @@ const fs = require('fs');
 const path = require('path');
 const https = require('https');
 const { CONSOLES } = require('./systems');
-const PLATFORM_IDS = new Set(CONSOLES.map(c => c.id));
+const PLATFORM_IDS = new Set(['custom', 'pc', ...CONSOLES.map(c => c.id)]);
 
 let log = () => {}, dataDir = '';
 const isFile = p => { try { return fs.statSync(p).isFile(); } catch { return false; } };
@@ -132,7 +132,7 @@ function quiverGames(chosen) {
   return out;
 }
 
-// ---------- games added by hand (cfg.pc.custom: [{ id, title, exe, args }]) ----------
+// ---------- games added by hand (cfg.pc.custom: [{ id, title, exe, args, platform }]) ----------
 function customGames(list) {
   return (Array.isArray(list) ? list : []).filter(c => c && typeof c.exe === 'string' && c.exe && isFile(c.exe)).slice(0, 500)
     .map(c => ({ id: 'custom-' + slug(c.id || c.title || path.basename(c.exe)), source: 'custom', title: String(c.title || path.basename(c.exe, '.exe')).trim().slice(0, 120), exe: c.exe, args: typeof c.args === 'string' ? c.args.slice(0, 1000) : '', ...(PLATFORM_IDS.has(c.platform) ? { platform: c.platform } : {}) }));
