@@ -29,7 +29,7 @@ const emu={gc:"Dolphin\\Dolphin.exe",wii:"Dolphin\\Dolphin.exe",wiiu:"Cemu\\Cemu
 const folder={gc:"Gamecube",wii:"Wii",wiiu:"Wii U",sw:"Switch",psp:"PSP",ps3:"PS3",n3ds:"3DS"};
 // ?sw2=1 (beta.3 device test): a Switch 2 shelf with three Eglantine builds, for Settings → Switch 2 → Builds. Off by default,
 // so the other passes keep their console counts
-const SW2=/[?&]sw2=1/.test(location.search),PCX=/[?&]pcx=1/.test(location.search);
+const SW2=/[?&]sw2=1/.test(location.search),PCX=/[?&]pcx=1/.test(location.search);let customPick=0;
 if(SW2){consoles.push({id:"sw2",name:"Switch 2",emulatorName:"Eglantine",exeNames:["eglantine.exe"],extensions:["nsp","xci","nup"],gameArgs:'-f -g "{rom}"'});titles.sw2=["Glimmer Kart","Hollow Ridge","Tidal Run"];emu.sw2="Switch 2 emu\\Selvet Forks\\performance-6\\eglantine.exe";folder.sw2="Switch 2"}
 // ?retro=1 (beta.6 device test): a few of the retro shelves (RetroArch, DuckStation) with games, for their cases, titles,
 // Settings pages and the wizard
@@ -86,7 +86,7 @@ window.boxshelf={
     if(apps.length)out.push({id:"media",kind:"apps",name:"Media",games:apps});
     return out;
   },
-  pick:async o=>o.kind==="folder"?root+"\\ROMS\\Picked":root+"\\Picked\\program.exe",
+  pick:async o=>o.kind==="folder"?root+"\\ROMS\\Picked":root+"\\Picked\\"+(++customPick===1?"program":"program"+customPick)+".exe",
   // (beta.5) Details → Rename: a name of its own per game (main keeps it in config.games; the scan above applies it)
   renameGame:async({systemId,file,id,title})=>{await wait(80);const k=systemId?systemId+":"+file:String(id);config.games=config.games||{};const v=String(title||"").trim();if(v)config.games[k]=Object.assign({},config.games[k],{title:v});else if(config.games[k])delete config.games[k].title;return {ok:true,title:v}},
   ...(PCX?{pcCoverOptions:async(id,term)=>{await wait(150);window.__pcCoverTerm=term||"";const svg=(c,t)=>"data:image/svg+xml;charset=utf-8,"+encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="200" height="300"><rect width="200" height="300" fill="${c}"/><text x="20" y="160" font-size="22" fill="#fff">${t}</text></svg>`);

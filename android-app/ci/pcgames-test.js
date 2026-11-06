@@ -5,7 +5,8 @@
 //   gone are left out; a saved config keeps only clean entries.
 //   The demo page as Windows with ?pcx=1: the PC shelf has the Epic game, a Custom shelf has the Quiver recomp; Play on it
 //   goes through launch:pc by id (and back to the shelf when it closes), the Epic game says it starts through Epic;
-//   Settings → Custom games adds a program, names it, removes it (twice); Settings → PC games has the Epic switch.
+//   Settings → Custom games adds three programs with separate settings pages, edits one, and removes them (twice);
+//   Settings → PC games has the Epic switch.
 'use strict';
 const path = require('path'), fs = require('fs'), os = require('os');
 
@@ -114,12 +115,19 @@ module.exports = async function pcGamesPass({ browser, base, check, newPage }) {
       if (window.Settings && Settings.isOpen && Settings.isOpen()) { await Settings.close(); await w(800); }
       Setup.open({ page: 'custom' }); for (let i = 0; i < 40 && !row('Add a game'); i++) await w(150); await w(800);
       out.page = names(); out.quiverRow = (row('Quiver Launcher') || {}).textContent || '';
-      row('Add a game').click(); await w(1200); out.added = (await cfg()).custom; out.after = names();
+      row('Add a game').click(); await w(1200); row('Add a game').click(); await w(700); row('Add a game').click(); await w(700);
+      out.added = (await cfg()).custom; out.after = names();
+      const firstGame = row('program'); if (firstGame) { firstGame.click(); await w(700); }
+      out.gameSettings = names();
       const platform = row('Platform'); if (platform) { platform.click(); key('ArrowRight'); await w(500); }
       const argRow = row('Launch arguments'); if (argRow) { argRow.click(); await w(150); const input = document.querySelector('.bss-edit'); if (input) { input.value = '-dx12'; input.dispatchEvent(new Event('input', { bubbles: true })); key('Enter'); }
         else { for (const ch of '-dx12') { const k=[...document.querySelectorAll('.bss-key')].find(x=>x.textContent===ch); if(k)k.click(); await w(100); } const done=[...document.querySelectorAll('.bss-key')].find(x=>x.textContent==='Done'); if(done)done.click(); } await w(700); }
       out.assigned = ((await cfg()).custom || [])[0] && (await cfg()).custom[0].platform || '';
       out.args = ((await cfg()).custom || [])[0] && (await cfg()).custom[0].args || '';
+      key('Escape'); await w(500);
+      const secondGame = row('program2'); if (secondGame) { secondGame.click(); await w(700); }
+      out.secondSettings = names(); out.secondGame = ((await cfg()).custom || [])[1] || null;
+      key('Escape'); await w(500);
       if (window.Settings && Settings.isOpen && Settings.isOpen()) { await Settings.close(); await w(1500); }
       const word = () => (document.getElementById('sysWord') || {}).textContent || '';
       for (let i = 0; i < 30 && !/^PC/.test(word().trim()); i++) { key('ArrowDown'); await w(250); }
@@ -127,7 +135,8 @@ module.exports = async function pcGamesPass({ browser, base, check, newPage }) {
       out.platformShelf = word(); out.platformGame = Shelf._qs().g;
       if (out.platformGame === 'program') { key('i'); await w(500); out.command = (document.getElementById('dCmd')||{}).textContent||''; key('i'); await w(300); key('Enter'); await w(1400); out.platformLaunch = (window.__pcLaunched || []).includes('custom-'+((await cfg()).custom[0]||{}).id); out.launchArgs=(window.__pcLaunches||[]).slice(-1)[0]||null; }
       for (let i = 0; i < 30 && Shelf.getMode() !== 'browse'; i++) await w(250);
-      Setup.open({ page: 'custom' }); for (let i = 0; i < 40 && !row('Platform'); i++) await w(150); await w(500);
+      Setup.open({ page: 'custom' }); for (let i = 0; i < 40 && !row('program'); i++) await w(150); await w(500);
+      const firstAgain=row('program'); if(firstAgain)firstAgain.click(); await w(700);
       const platformAgain=row('Platform'); if(platformAgain){platformAgain.click();for(let i=0;i<20&&(((await cfg()).custom||[])[0]||{}).platform!=='xboxone';i++){key('ArrowRight');await w(200)}}
       out.xboxAssigned=((await cfg()).custom||[])[0]&&((await cfg()).custom||[])[0].platform||'';
       if (window.Settings && Settings.isOpen && Settings.isOpen()) { await Settings.close(); await w(1200); }
@@ -137,13 +146,19 @@ module.exports = async function pcGamesPass({ browser, base, check, newPage }) {
       if(out.xboxGame==='program'){key('Enter');await w(1400);out.xboxLaunch=(window.__pcLaunches||[]).slice(-1)[0]||null}
       for(let i=0;i<30&&Shelf.getMode()!=='browse';i++)await w(250);
       Setup.open({ page: 'custom' }); for (let i = 0; i < 40 && !row('Add a game'); i++) await w(150); await w(500);
-      const rm = names().find(n => /^Remove /.test(n)); if (rm) { row(rm).click(); await w(300); row(rm).click(); await w(1200); }
+      for (const game of ['program','program2','program3']) { const entry=row(game); if(entry){entry.click();await w(500);const rm=row('Remove game');if(rm){rm.click();await w(300);rm.click();await w(700)}} }
       out.removed = (await cfg()).custom;
       if (window.Settings && Settings.isOpen && Settings.isOpen()) { await Settings.close(); await w(800); } return out; });
     check('PC games (Windows): Settings → PC games has the Epic switch; Custom games has Quiver and Add a game',
       st.pcPage.includes('Show installed Epic Games') && st.page.includes("Show Quiver's games") && st.page.includes('Add a game') && /Found/.test(st.quiverRow), JSON.stringify({ pc: st.pcPage, page: st.page, q: st.quiverRow }).slice(0, 500));
-    check('PC games (Windows): Add a game puts the program on the Custom shelf named from its file; Remove (pressed twice) takes it off',
-      (st.added || []).length === 1 && st.added[0].title === 'program' && /program\.exe$/.test(st.added[0].exe) && st.after.includes('program') && (st.removed || []).length === 0, JSON.stringify({ added: st.added, removed: st.removed }).slice(0, 400));
+    check('PC games (Windows): each custom executable has its own settings page; name, arguments and platform are not mixed into the game list',
+      (st.added || []).length === 3 && st.after.includes('program') && st.after.includes('program2') && st.after.includes('program3') &&
+        !st.after.includes('Launch arguments') && !st.after.includes('Platform') && st.gameSettings.includes('Game name') &&
+        st.gameSettings.includes('Launch arguments') && st.gameSettings.includes('Platform') && st.gameSettings.includes('Remove game') &&
+        st.secondSettings.includes('Game name') && st.secondSettings.includes('Platform') && st.secondGame && !st.secondGame.args && !st.secondGame.platform,
+      JSON.stringify({ added: st.added, list: st.after, first: st.gameSettings, second: st.secondSettings, secondGame: st.secondGame }).slice(0, 700));
+    check('PC games (Windows): Remove from a game settings page (confirmed twice) takes only that game off the list',
+      (st.removed || []).length === 0, JSON.stringify(st.removed));
     check('PC games (Windows): a standalone executable can be assigned to PC with editable arguments, displayed as its command and launched with those arguments',
       st.assigned === 'pc' && st.args === '-dx12' && /^PC/.test(st.platformShelf.trim()) && st.platformGame === 'program' && /program\.exe.*-dx12/.test(st.command) && st.platformLaunch && st.launchArgs && st.launchArgs.args === '-dx12', JSON.stringify({ assigned: st.assigned, args: st.args, shelf: st.platformShelf, game: st.platformGame, command: st.command, launch: st.launchArgs }));
     check('PC games (Windows): Xbox One has a standalone shelf and starts assigned executables without an emulator',

@@ -657,9 +657,8 @@ const sw2Row=()=>!!api.sw2Builds&&!(window.bsPlatform&&bsPlatform.os==="android"
 // (beta.3) Settings → Switch 2 → Builds. One choice among "Ask each time" and every build (the shelf's emulator is the
 // build Play starts in, or offers first when it asks); builds and folders of builds kept elsewhere can be added and removed
 // (beta.4) Settings → Custom games: Quiver Launcher (found where it usually is, or found / chosen once for a portable
-// copy) and the programs added by hand, each named here. pcSt: what main sees ({ quiver: folder, epic: count }), asked
-// for when the page is drawn
-let pcSt=null,pcAsking=false;const customNameRows=new WeakMap();
+// copy) and the programs added by hand, each with its own settings page. pcSt: what main sees ({ quiver: folder, epic: count })
+let pcSt=null,pcAsking=false;
 function pcStatus(){if(pcAsking||!api.pcStatus)return;pcAsking=true;Promise.resolve(api.pcStatus()).then(r=>{pcSt=r||{};pcAsking=false;bump()}).catch(()=>{pcSt={};pcAsking=false;bump()})}
 function customRows(){if(!pcSt)setTimeout(pcStatus,0);cfg.pc=cfg.pc||{epic:true,quiver:true,quiverPath:"",custom:[]};const pc=cfg.pc;if(!Array.isArray(pc.custom))pc.custom=[];const rows=[];
   const again=()=>{pcSt=null;changed({rescan:true})};
@@ -675,14 +674,14 @@ function customRows(){if(!pcSt)setTimeout(pcStatus,0);cfg.pc=cfg.pc||{epic:true,
     const p=await pick({kind:"file",title:"Choose the game's program",filters:[{name:"Programs",extensions:["exe"]}]}),exe=typeof p==="string"?p:p&&p.path;if(!exe)return;
     if(pc.custom.some(c=>String(c.exe).toLowerCase()===String(exe).toLowerCase()))return toast("That game is already on the Custom shelf");
     const title=String(exe).split(/[\\/]/).pop().replace(/\.[^.]+$/,"").replace(/[_\-.]+/g," ").replace(/\s+/g," ").trim()||"Game";
-    pc.custom.push({id:Date.now().toString(36),title,exe,args:""});changed({rescan:true});toast(`Added ${title}. Rename it below if you like.`)},{keys:"add custom game recomp port program exe"}));
+    pc.custom.push({id:Date.now().toString(36),title,exe,args:""});changed({rescan:true});toast(`Added ${title}. Open its settings to rename it or change its launch options.`)},{keys:"add custom game recomp port program exe"}));
   pc.custom.forEach((c,i)=>{
-    // (beta.5) the name row is kept per game (the text editor finds its row by identity: a new object each draw never edited)
-    let nr=customNameRows.get(c);if(!nr){nr=X(c.title||"Game","",`Its name on the shelf. Program: ${c.exe}`,{get:()=>c.title||"",set:v=>{c.title=String(v||"").slice(0,120);nr.label=c.title||"Game"},rescan:true,ns:true,keys:"rename custom game",sub:()=>({text:folderName(c.exe)})});customNameRows.set(c,nr)}
-    rows.push(nr);
-    rows.push(X("Launch arguments",`pc.custom.${i}.args`,"Optional arguments passed to this program when it starts, for example -dx12. Quote values that contain spaces.",{get:()=>c.args||"",set:v=>{c.args=String(v||"").slice(0,1000)},d:"",rescan:true,ns:true,keys:"launch command arguments flags options dx12",mono:true}));
-    rows.push(C("Platform",`pc.custom.${i}.platform`,()=>[["custom","Custom"],["pc","PC"],...consoleList().map(s=>[s.id,s.name])],"custom","Puts this executable on the selected shelf. Boxshelf starts the EXE directly; selecting a console does not run it through an emulator.",{rescan:true,keys:"assign platform shelf console category PC Xbox One"}));
-    rows.push(A("Remove "+(c.title||"this game"),"Remove","Takes it off the Custom shelf. Nothing is deleted.",()=>twice("pcx:"+i,()=>{pc.custom.splice(i,1);changed({rescan:true});toast("Removed from the Custom shelf (nothing was deleted)")},"Press again to remove it"),{ns:true,ask:"pcx:"+i}))});
+    const pageId="custom-game-"+String(c.id||i).replace(/[^a-z0-9_-]/gi,"-");
+    const name=X("Game name",`pc.custom.${pageId}.title`,"The name shown on its shelf.",{get:()=>c.title||"",set:v=>{c.title=String(v||"").slice(0,120);if(MORE[pageId])MORE[pageId].name=c.title||"Game"},d:"",rescan:true,keys:"rename custom game"});
+    const args=X("Launch arguments",`pc.custom.${pageId}.args`,"Optional arguments passed to this program when it starts, for example -dx12. Quote values that contain spaces.",{get:()=>c.args||"",set:v=>{c.args=String(v||"").slice(0,1000)},d:"",rescan:true,keys:"launch command arguments flags options dx12",mono:true});
+    const platform=C("Platform",`pc.custom.${pageId}.platform`,()=>[["custom","Custom"],["pc","PC"],...consoleList().map(s=>[s.id,s.name])],"custom","Puts this executable on the selected shelf. Boxshelf starts the EXE directly; selecting a console does not run it through an emulator.",{get:()=>c.platform||"custom",set:v=>{c.platform=v},rescan:true,keys:"assign platform shelf console category PC Xbox One"});
+    const remove=A("Remove game","Remove","Takes it off the Custom shelf. Nothing is deleted.",()=>twice("pcx:"+pageId,()=>{const at=pc.custom.indexOf(c);if(at<0)return;pc.custom.splice(at,1);changed({rescan:true});leaveSub();render();toast("Removed from the Custom shelf (nothing was deleted)")},"Press again to remove it"),{ns:true,ask:"pcx:"+pageId});
+    rows.push(M(c.title||"Game",pageId,`Settings for ${c.title||"this game"}.`,`Program: ${c.exe}`,[name,args,platform,remove],{btn:"Edit",keys:"custom game name launch arguments platform shelf"}))});
   return rows}
 const sw2Low=x=>String(x||"").toLowerCase();
 function sw2Fixed(){const c=sysCfg("sw2");if(c.askBuild!==false||!c.emulator)return null;return (sw2b||[]).find(b=>sw2Low(b.exe)===sw2Low(c.emulator))||{exe:c.emulator,label:progName(c.emulator)}}
