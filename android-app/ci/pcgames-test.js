@@ -49,6 +49,22 @@ module.exports = async function pcGamesPass({ browser, base, check, newPage }) {
     const config = require(path.join(root, 'main', 'config.js'));
     const clean = config.normalize({ pc: { custom: [{ title: 'Ok', exe: 'C:\\x.exe', platform: 'ps2' }, { title: 'PC game', exe: 'C:\\y.exe', platform: 'pc', args: '-dx12' }, { title: 'Bad platform', exe: 'C:\\z.exe', platform: 'not-a-console' }, { title: 'No exe' }, 'junk'], epic: 'yes' } }).pc;
     const launcher = require(path.join(root, 'main', 'launcher.js'));
+    const pcc = require(path.join(root, 'main', 'pccovers.js')), coverDir = path.join(tmp, 'pc-art');
+    let lookedUp = '', sgEnabled = true;
+    pcc.init({ dataDir: coverDir, steamgrid: { enabled: () => sgEnabled, posters: async g => { lookedUp = g.title; return [{ url: 'https://steamgriddb.com/poster.jpg', ext: '.jpg' }]; } }, fetchImage: async () => Buffer.from('poster image'), match: () => null, log: () => {} });
+    const ownFile = path.join(tmp, 'picked.png'); fs.writeFileSync(ownFile, 'my selected art');
+    await pcc.own('picked-art', ownFile);
+    const artResult = await pcc.fillMissing([
+      { id: 'quiver-art', title: 'A Recomp', source: 'quiver' },
+      { id: 'picked-art', title: 'A Picked Cover', source: 'custom' },
+      { id: 'existing-art', title: 'Already Covered', source: 'custom', art: { front: 'bsfile://existing.jpg' } },
+    ]);
+    sgEnabled = false;
+    const noKey = await pcc.fillMissing([{ id: 'no-key', title: 'No Key', source: 'custom' }]);
+    check('PC artwork: automatic SteamGridDB posters fill missing standalone-game art, but never replace a user choice or existing cover',
+      artResult.checked === 1 && artResult.downloaded === 1 && lookedUp === 'A Recomp' && !!pcc.autoCover('quiver-art') &&
+        fs.readFileSync(pcc.cover('picked-art'), 'utf8') === 'my selected art' && !pcc.autoCover('existing-art') &&
+        noKey.checked === 0 && noKey.downloaded === 0, JSON.stringify({ artResult, noKey, lookedUp, downloaded: !!pcc.autoCover('quiver-art') }));
     fs.rmSync(tmp, { recursive: true, force: true });
     check('PC games: a hand-added game keeps its console assignment, missing files and unknown platforms are excluded',
       c.length === 1 && c[0].title === 'Mine' && c[0].platform === 'ps2' && clean.custom.length === 3 && clean.custom[0].exe === 'C:\\x.exe' && clean.custom[0].platform === 'ps2' && clean.custom[1].platform === 'pc' && clean.custom[1].args === '-dx12' && !clean.custom[2].platform && clean.epic === true, JSON.stringify({ c, clean }));

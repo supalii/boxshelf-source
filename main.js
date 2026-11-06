@@ -155,7 +155,7 @@ function computeRoots() {
   if (artstudio.cacheDir()) roots.push(artstudio.cacheDir()); // Art Studio's downloaded candidates (the picker's thumbnails)
   if (manualstudio.cacheDir()) roots.push(manualstudio.cacheDir()); // Manual Studio's first-page previews and PDFs (also read by the PDF helper by address)
   if (cfg.steam.path) roots.push(path.join(cfg.steam.path, 'appcache', 'librarycache'), path.join(app.getPath('userData'), 'steam-art')); // Steam's art cache only, not its config files
-  roots.push(path.join(app.getPath('userData'), 'steam-art'), path.join(app.getPath('userData'), 'pc-covers'), path.join(app.getPath('userData'), 'pc-cover-cache')); // (beta.5) Epic games' Steam art (even without Steam), chosen PC covers and the cover picker's thumbnails
+  roots.push(path.join(app.getPath('userData'), 'steam-art'), path.join(app.getPath('userData'), 'pc-covers'), path.join(app.getPath('userData'), 'pc-auto-covers'), path.join(app.getPath('userData'), 'pc-cover-cache')); // (beta.5) Epic games' Steam art (even without Steam), chosen PC covers, automatic posters and the cover picker's thumbnails
   return roots.filter(Boolean).map(r => { r = path.resolve(r).toLowerCase(); return r.endsWith(path.sep) ? r : r + path.sep; });
 }
 
@@ -512,7 +512,7 @@ async function buildLibrary() {
   let pcShelf = [];
   if (cfg.steam.enabled && cfg.steam.path) {
     // Steam's own cached art first, then anything Boxshelf fetched from the Steam store for games Steam has no cover for
-    pcShelf = scanSteam(cfg.steam.path, { hideTools: cfg.steam.hideTools !== false }).map(g => { const l = steamart.local(g.appid); return { ...g, ...(ownTitle(g.id) ? { title: ownTitle(g.id), fileTitle: g.title } : {}), info: steamart.gameInfo(g.appid), art: { front: fileUrl(pccovers.cover(g.id) || g.art.front || l.front), hero: fileUrl(g.art.hero || l.hero) } }; }); // (beta.5: a cover chosen in the picker wins)
+    pcShelf = scanSteam(cfg.steam.path, { hideTools: cfg.steam.hideTools !== false }).map(g => { const l = steamart.local(g.appid); return { ...g, ...(ownTitle(g.id) ? { title: ownTitle(g.id), fileTitle: g.title } : {}), info: steamart.gameInfo(g.appid), art: { front: fileUrl(pccovers.cover(g.id) || g.art.front || l.front || pccovers.autoCover(g.id)), hero: fileUrl(g.art.hero || l.hero) } }; }); // (beta.5: a cover chosen in the picker wins)
   }
   // (beta.4) Epic's installs join the PC shelf; Quiver's and hand-added executables use Custom unless assigned to PC or a console shelf. They
   // are PC games with a source (kind 'steam' keeps every shelf feature); covers come from the Steam app their title
@@ -526,7 +526,7 @@ async function buildLibrary() {
   // (Steam art by title only for Epic's store games: a recomp or a program added by hand often shares its name with an
   // unrelated Steam game, "Quarantine" got a puzzle game's cover; they keep the made-up case)
   const pcGame = g => { const sid = g.source === 'epic' ? pcgames.steamIdOf(g.title) : null, l = sid ? steamart.local(sid) : {};
-    return { kind: 'steam', source: g.source, id: g.id, title: g.title, ...(g.exe ? { exe: g.exe } : {}), ...(g.args ? { args: g.args } : {}), ...(g.platform ? { platform: g.platform } : {}), ...(sid ? { info: steamart.gameInfo(sid) } : {}), art: { front: fileUrl(pccovers.cover(g.id) || l.front), hero: fileUrl(l.hero), icon: g.icon || undefined } }; };
+    return { kind: 'steam', source: g.source, id: g.id, title: g.title, ...(g.exe ? { exe: g.exe } : {}), ...(g.args ? { args: g.args } : {}), ...(g.platform ? { platform: g.platform } : {}), ...(sid ? { info: steamart.gameInfo(sid) } : {}), art: { front: fileUrl(pccovers.cover(g.id) || l.front || pccovers.autoCover(g.id)), hero: fileUrl(l.hero), icon: g.icon || undefined } }; };
   for (const def of CONSOLES) {
     const games = mine.filter(g => g.platform === def.id).map(pcGame);
     if (!games.length) continue;
@@ -921,13 +921,14 @@ function renderEpubManual(root, pages) {
     })();
   });
 }
-// Steam games missing a cover (or store info): fetch them in the background, then refresh the shelf once
+// Steam art and missing PC-game posters: fetch them in the background, then refresh the shelf once
 let steamFilling = false;
 async function steamFill(lib) {
-  if (steamFilling || cfg.ui.autoCovers === false) return; const pcs = lib.filter(s => s.kind === 'steam'); if (!pcs.length) return;
+  if (steamFilling || cfg.ui.autoCovers === false) return; const pcs = lib.filter(s => s.kind === 'steam'), all = lib.flatMap(s => s.games || []), customPc = all.filter(g => g.source && g.source !== 'steam');
+  if (!pcs.length && !customPc.length) return;
   steamFilling = true;
   try {
-    const all = pcs.flatMap(s => s.games); let games = all.filter(g => !g.source || g.source === 'steam'), matched = 0;
+    let games = pcs.flatMap(s => s.games).filter(g => !g.source || g.source === 'steam'), matched = 0;
     // (beta.4) Epic / Quiver / hand-added games: their titles are matched to Steam apps (only with box art downloads turned
     // on in setup or Settings: it sends the titles to Steam's store search), then filled like Steam's own
     const others = all.filter(g => g.source === 'epic'); // (only Epic's store games: see buildLibrary's pcGame)
@@ -935,7 +936,9 @@ async function steamFill(lib) {
       matched = await pcgames.matchSteam(others.map(g => g.title));
       games = games.concat(others.map(g => { const id = pcgames.steamIdOf(g.title); return id ? { appid: String(id), title: g.title, art: { front: g.art.front, hero: g.art.hero } } : null; }).filter(Boolean));
     }
-    const r = await steamart.fill(games); if ((r.covers || r.other || matched) && alive()) win.webContents.send('library:changed', { covers: r.covers });
+    const r = games.length ? await steamart.fill(games) : { covers: 0, other: 0 };
+    const pcArt = await pccovers.fillMissing(customPc);
+    if ((r.covers || r.other || matched || pcArt.downloaded) && alive()) win.webContents.send('library:changed', { covers: (r.covers || 0) + pcArt.downloaded });
   } /* heroes and store info: a quiet refresh, no toast */ catch (e) { log('steam art failed', e.message); } finally { steamFilling = false; }
 }
 let autoManualsDone = false, autoManualJob = null, manualSeen = null, manualAgain = false;
@@ -1316,6 +1319,15 @@ const pcGameOf = id => { const g = pcLookup(id); if (!g) throw new Error("That g
 const pcCoverChanged = () => { if (alive()) win.webContents.send('library:changed', { pcCover: 1 }); };
 handle('pccover:options', ({ id, term }) => { const g = pcGameOf(id), t = String(term || '').replace(/\s+/g, ' ').trim().slice(0, 120);
   return pccovers.options(t ? { id: g.id, title: t } : g); }); // (beta.5: term = Search by name, a title instead of the game's own / its Steam app)
+handle('pccover:downloadMissing', async () => {
+  const lib = lastLib || await scanOnce(); lastLib = lib;
+  const games = lib.flatMap(s => s.games || []).filter(g => g.source && g.source !== 'steam');
+  if (!games.length) return { checked: 0, downloaded: 0 };
+  if (!require('./main/steamgrid').enabled()) throw new Error('Set a valid SteamGridDB key in Settings → Accounts & services first.');
+  const result = await pccovers.fillMissing(games);
+  if (result.downloaded) pcCoverChanged();
+  return result;
+});
 handle('pccover:use', async ({ id, key }) => { pcGameOf(id); await pccovers.use(id, key); pcCoverChanged(); return { ok: true }; });
 handle('pccover:own', async ({ id }) => {
   pcGameOf(id);

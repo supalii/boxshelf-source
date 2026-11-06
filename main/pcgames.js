@@ -144,6 +144,7 @@ const titleFromExe = exe => path.basename(String(exe || ''), path.extname(String
 let last = new Map();
 function remember(games) { last = new Map(games.map(g => [g.id, g])); }
 const byId = id => last.get(String(id || ''));
+const all = () => [...last.values()];
 
 // ---------- covers: a title → its Steam app, once ----------
 // data\pc-steam.json: { "<lower title>": { id: 1234 | 0, at } }; a miss is tried again after a week
@@ -175,4 +176,4 @@ async function matchSteam(titles) {
   return n;
 }
 
-module.exports = { init, epicGames, quiverGames, quiverFind, quiverRoots, customGames, titleFromExe, mainExe, remember, byId, steamIdOf, matchSteam, EPIC_DIR };
+module.exports = { init, epicGames, quiverGames, quiverFind, quiverRoots, customGames, titleFromExe, mainExe, remember, byId, all, steamIdOf, matchSteam, EPIC_DIR };

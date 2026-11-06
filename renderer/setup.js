@@ -339,7 +339,7 @@ function setLook(v){wizLook=v;if(v==="region"){if(!["usa","eur","jpn"].includes(
 let artChosen=null;
 function artLookSection(b){
   if(artChosen===null&&!(info.config&&info.config.setupDone)&&cfg.ui.autoCovers!==true){
-    head(b,"Step 3 of 3","Download box art?","Boxshelf can find the covers, backs, spines, discs and manuals for your games online. To find them it sends your game titles (and GameCube / Wii disc IDs) to LaunchBox, libretro, GameTDB and the Super Mario Wiki. Nothing else about you or your PC is sent.");
+    head(b,"Step 3 of 3","Download box art?","Boxshelf can find the covers, backs, spines, discs and manuals for your games online. It sends console game titles (and GameCube / Wii disc IDs) to LaunchBox, libretro, GameTDB and the Super Mario Wiki. PC game titles are also sent to SteamGridDB if you have added a key in Accounts & services. Nothing else about you or your PC is sent.");
     b.append(el("div",{class:"d-actions"},
       el("button",{type:"button",class:"btn primary","data-art":"yes",onclick:()=>{artChosen=true;cfg.ui.autoCovers=true;if(cfg.ui.autoManuals==null)cfg.ui.autoManuals=true;changed();render()}},"Yes, download box art"),
       el("button",{type:"button",class:"btn","data-art":"no",onclick:()=>{artChosen=false;cfg.ui.autoCovers=false;cfg.ui.autoManuals=false;changed();stepBy(1)}},"Not now")));
@@ -347,9 +347,9 @@ function artLookSection(b){
     return;
   }
   const on=cfg.ui.autoCovers===true,look=lookNow();
-  head(b,"Step 3 of 3","How should your boxes look?","Boxshelf finds the covers, backs, spines and discs for your games online.");
+  head(b,"Step 3 of 3","How should your boxes look?","Boxshelf finds console box scans online and can find modern PC-game covers with SteamGridDB.");
   b.append(card("","",toggle("Download box art automatically",on,v=>{cfg.ui.autoCovers=v;render()},"wz2-ac"),
-    el("div",{class:"hint-text",text:"Sends your game titles (and GameCube / Wii disc IDs) to LaunchBox, libretro, GameTDB and the Super Mario Wiki to find pictures (SteamGridDB too, if you add a key later). Nothing else about you or your PC is sent."})));
+    el("div",{class:"hint-text",text:"Sends console game titles (and GameCube / Wii disc IDs) to LaunchBox, libretro, GameTDB and the Super Mario Wiki. If you add a SteamGridDB key in Accounts & services, Boxshelf can also look up PC games, ports and recomps by title. Nothing else about you or your PC is sent."})));
   const g=el("div",{class:"wz2-looks"+(on?"":" off")});
   LOOKS.forEach(([id,t,d,tag])=>g.append(el("button",{type:"button",class:"wz2-look"+(look===id?" on":""),role:"radio","aria-checked":String(look===id),disabled:!on,onclick:()=>setLook(id)},
     el("span",{class:"wz2-art "+id,"aria-hidden":"true"}),el("span",{class:"wz2-name",text:t}),el("span",{class:"wz2-st",text:d}),tag?el("span",{class:"wz2-tag",text:tag}):null)));

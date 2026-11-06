@@ -43,6 +43,7 @@ contextBridge.exposeInMainWorld('boxshelf', {
   pcStatus: () => call('pc:status'),
   // (beta.5) a PC game's cover picker
   pcCoverOptions: (id, term) => call('pccover:options', { id, term }),
+  pcCoverDownloadMissing: () => call('pccover:downloadMissing'),
   pcCoverUse: (id, key) => call('pccover:use', { id, key }),
   pcCoverOwn: id => call('pccover:own', { id }),
   pcCoverReset: id => call('pccover:reset', { id }),
