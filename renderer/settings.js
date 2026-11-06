@@ -672,6 +672,7 @@ function customRows(){if(!pcSt)setTimeout(pcStatus,0);cfg.pc=cfg.pc||{epic:true,
     // (beta.5) the name row is kept per game (the text editor finds its row by identity: a new object each draw never edited)
     let nr=customNameRows.get(c);if(!nr){nr=X(c.title||"Game","",`Its name on the shelf. Program: ${c.exe}`,{get:()=>c.title||"",set:v=>{c.title=String(v||"").slice(0,120);nr.label=c.title||"Game"},rescan:true,ns:true,keys:"rename custom game",sub:()=>({text:folderName(c.exe)})});customNameRows.set(c,nr)}
     rows.push(nr);
+    rows.push(C("Platform",`pc.custom.${i}.platform`,()=>[["custom","Custom"],...consoleList().map(s=>[s.id,s.name])],"custom","Puts this executable on the selected platform shelf. Boxshelf starts the EXE directly; it does not pass it to that platform's emulator.",{rescan:true,keys:"assign platform shelf console category"}));
     rows.push(A("Remove "+(c.title||"this game"),"Remove","Takes it off the Custom shelf. Nothing is deleted.",()=>twice("pcx:"+i,()=>{pc.custom.splice(i,1);changed({rescan:true});toast("Removed from the Custom shelf (nothing was deleted)")},"Press again to remove it"),{ns:true,ask:"pcx:"+i}))});
   return rows}
 const sw2Low=x=>String(x||"").toLowerCase();

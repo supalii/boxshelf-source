@@ -74,8 +74,13 @@ window.boxshelf={
     // ?pcx=1 (beta.4 device test): an Epic game on the PC shelf, and a Custom shelf (a Quiver recomp + the games added in Settings)
     if(PCX){const pc=out.find(s=>s.id==="pc")||(out.push({id:"pc",kind:"steam",name:"PC",games:[]}),out[out.length-1]);pc.games.push({kind:"steam",source:"epic",id:"epic-ember-trail",title:"Ember Trail",art:{}});
       const own=(id,t)=>{const o=(config.games||{})[id];return o&&o.title?{title:o.title,fileTitle:t}:{title:t}};
-      const mine=[{kind:"steam",source:"quiver",id:"quiver-quarantine",...own("quiver-quarantine","Quarantine"),art:{}},...((config.pc&&config.pc.custom)||[]).map(c=>({kind:"steam",source:"custom",id:"custom-"+c.id,title:c.title||"Game",art:{}}))];
+      const entries=(config.pc&&config.pc.custom)||[];
+      const pcGame=c=>({kind:"steam",source:"custom",id:"custom-"+c.id,title:c.title||"Game",art:{}});
+      const mine=[{kind:"steam",source:"quiver",id:"quiver-quarantine",...own("quiver-quarantine","Quarantine"),art:{}},...entries.filter(c=>!c.platform).map(pcGame)];
       out.push({id:"custom",kind:"steam",name:"Custom",games:mine})}
+    if(PCX)for(const c of (config.pc&&config.pc.custom)||[]){if(!c.platform)continue;const def=consoles.find(s=>s.id===c.platform);if(!def)continue;
+      let sh=out.find(s=>s.id===c.platform);if(!sh){sh={id:def.id,kind:"console",name:def.name,emulatorName:def.emulatorName,hasEmulator:false,games:[]};out.push(sh)}
+      sh.games.push({kind:"steam",source:"custom",id:"custom-"+c.id,title:c.title||"Game",art:{}})}
     const apps=["stremio","nuvio"].filter(a=>config.apps[a].enabled&&config.apps[a].path).map(a=>({kind:"app",id:"app-"+a,appId:a,title:a==="stremio"?"Stremio":"Nuvio",path:config.apps[a].path,art:{}}));
     if(apps.length)out.push({id:"media",kind:"apps",name:"Media",games:apps});
     return out;

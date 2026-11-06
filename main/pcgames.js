@@ -1,6 +1,6 @@
 // PC games beyond Steam (beta.4): the Epic Games Launcher's installs (on the PC shelf), and on the Custom shelf the apps
 // Quiver Launcher installed (recomps, ports; Quiver 3, portable or installed, and Quiver 4) plus any program added by hand
-// in Settings → Custom games. Each game is { id, source, title, exe | uri, icon?, appid? }: the screen only ever names a
+// in Settings → Custom games (optionally assigned to a console shelf). Each game is { id, source, title, exe | uri, icon?, appid?, platform? }: the screen only ever names a
 // game by id, and main starts it from this list (never a path the screen sends).
 //   - Epic: its manifests (ProgramData\Epic\EpicGamesLauncher\Data\Manifests\*.item); started through the launcher's own
 //     link, so its sign-in, cloud saves and overlay work as usual.
@@ -12,6 +12,8 @@
 const fs = require('fs');
 const path = require('path');
 const https = require('https');
+const { CONSOLES } = require('./systems');
+const PLATFORM_IDS = new Set(CONSOLES.map(c => c.id));
 
 let log = () => {}, dataDir = '';
 const isFile = p => { try { return fs.statSync(p).isFile(); } catch { return false; } };
@@ -133,7 +135,7 @@ function quiverGames(chosen) {
 // ---------- games added by hand (cfg.pc.custom: [{ id, title, exe, args }]) ----------
 function customGames(list) {
   return (Array.isArray(list) ? list : []).filter(c => c && typeof c.exe === 'string' && c.exe && isFile(c.exe)).slice(0, 500)
-    .map(c => ({ id: 'custom-' + slug(c.id || c.title || path.basename(c.exe)), source: 'custom', title: String(c.title || path.basename(c.exe, '.exe')).trim().slice(0, 120), exe: c.exe, args: typeof c.args === 'string' ? c.args.slice(0, 1000) : '' }));
+    .map(c => ({ id: 'custom-' + slug(c.id || c.title || path.basename(c.exe)), source: 'custom', title: String(c.title || path.basename(c.exe, '.exe')).trim().slice(0, 120), exe: c.exe, args: typeof c.args === 'string' ? c.args.slice(0, 1000) : '', ...(PLATFORM_IDS.has(c.platform) ? { platform: c.platform } : {}) }));
 }
 // a title from a program's name: "SoH-Ship-of-Harkinian.exe" → "SoH Ship of Harkinian"
 const titleFromExe = exe => path.basename(String(exe || ''), path.extname(String(exe || ''))).replace(/[_\-.]+/g, ' ').replace(/\s+/g, ' ').trim() || 'Game';
