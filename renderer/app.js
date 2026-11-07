@@ -73,7 +73,7 @@ function quote(p){return /\s/.test(p)?`"${p}"`:p}
 function argsPreview(tpl,rom){return (tpl||"").replace(/\{rom\}/g,rom||"")}
 
 // Turn scanned shelves into display items with seeds, hues and an emulator tile.
-// Games you've hidden (Details → Hide from shelf; Settings → Hidden games) never reach a shelf, so Home, the museum,
+// Games and special shelf tiles you've hidden (Details → Hide from shelf; Settings → Hidden games & tiles) never reach a shelf, so Home, the museum,
 // Shuffle, attract mode and letter jumps all skip them; the scan itself stays whole (lastLib) for the Settings list.
 let lastLib=null;
 function hiddenSet(){const h=cfgInfo&&cfgInfo.config.ui.hidden;return new Set(Array.isArray(h)?h.map(String):[])}
@@ -82,7 +82,7 @@ function prepare(list){
   const out=list.map(s0=>{
     const all=s0.games||[],games=hid.size?all.filter(g=>!hid.has(String(g.id))):all,s={...s0,games,_hiddenN:all.length-games.length};
     const items=games.map(g=>{const seed=hash(g.title);return {...g,seed,hue:g.kind==="app"?(APP_HUE[g.appId]||seed%360):seed%360,scene:g.kind==="app"?"media":undefined}});
-    if(s.kind==="console"&&s.hasEmulator){
+    if(s.kind==="console"&&s.hasEmulator&&!hid.has("emu-"+s.id)){
       const t=`Open ${s.emulatorName}`;const seed=hash(t+s.id);
       items.unshift({kind:"emulator",id:"emu-"+s.id,title:t,seed,hue:seed%360,scene:"media",art:{icon:s.emulatorIcon||null}});
     }
@@ -91,7 +91,7 @@ function prepare(list){
     // (beta.7) the Custom shelf ends in an "Add games" tile: Settings → Custom games → Add games (several at once, a folder, Playnite)
     if(s.id==="custom"&&!ANDROID){const seed=hash("setup-custom");items.push({kind:"setup",addGames:true,tail:true,id:"setup-custom",title:"Add games",seed,hue:210,scene:"media",art:{front:Covers.setupFront(STYLE.custom||STYLE.media)}})}
     // "Surprise me" tile at the front of every shelf that has games on it
-    if((s.kind==="console"||s.kind==="steam")&&s.games.length>1){
+    if((s.kind==="console"||s.kind==="steam")&&s.games.length>1&&!hid.has("rnd-"+s.id)){
       const seed=hash("random"+s.id),style=STYLE[s.id]||STYLE.media;
       items.unshift({kind:"random",id:"rnd-"+s.id,title:"Surprise me",seed,hue:300,scene:"media",art:{front:Covers.randomFront(style)}});
     }
@@ -919,6 +919,7 @@ function fillDetails(){
   $("dEmu").hidden=!(g.kind==="rom"&&s.hasEmulator);$("dEmu").textContent=`Open ${s.emulatorName||"emulator"}`;
   {const b=$("dBoxArt");if(b)b.hidden=!((g.kind==="rom"&&api.artStudio&&g.file)||(g.kind==="steam"&&api.pcCoverOptions));}{const b=$("dRename");if(b)b.hidden=!(api.renameGame&&((g.kind==="rom"&&g.file)||g.kind==="steam"));} /* (beta.5: PC games too, through the cover picker) */
   {const b=$("dCols");if(b)b.hidden=!isGame(g)||g.kind==="app";}
+  {const b=$("dHide");if(b)b.hidden=!(isGame(g)||g.kind==="random"||g.kind==="emulator");}
   {const b=$("dChooseManual");if(b){b.hidden=!(g.kind==="rom"&&api.manualStudio&&g.file);b.textContent=hasManual(g)?"Choose manual…":"Find a manual…"}}
   {const b=$("dGameEmu");if(b){const own=g.kind==="rom"?gameEmu(g):"";b.hidden=!(g.kind==="rom"&&api.gameEmulator);b.textContent=own?(emuLabel(own).length>16?emuLabel(own).slice(0,15)+"…":emuLabel(own)):"Emulator";b.title=own?`Runs in ${own} (just this game). Press to change.`:`Runs in the shelf's ${s.emulatorName||"emulator"}. Press to pick a different build for just this game.`;b.classList.toggle("own",!!own)}}
   renderHints(); // Y's prompt follows this game's trailer / achievements row (updateInfo drew the bar before this fill)
@@ -2267,6 +2268,7 @@ const SHAPES={
 let shuffling=false;
 const shuffleAll=()=>!(cfgInfo&&cfgInfo.config.ui.shuffleAll===false);
 const isGame=g=>g.kind==="rom"||g.kind==="steam";
+const isHideable=g=>!!g&&(isGame(g)||g.kind==="random"||g.kind==="emulator");
 // (beta.4) PC games carry their source: Steam, Epic, Quiver or added by hand (main/pcgames.js)
 const PC_SRC={epic:"Epic Games",quiver:"Quiver",custom:"Custom",gog:"GOG",ubisoft:"Ubisoft",ea:"EA",xbox:"Xbox"},PC_HOW={epic:"Starts through the Epic Games Launcher, so its sign-in, cloud saves and overlay work as usual.",quiver:"Installed with Quiver Launcher. Boxshelf starts it from its own folder; updates stay in Quiver.",custom:"Added by you in Settings → Custom games. Boxshelf starts it from its own folder.",
   gog:"Installed with GOG Galaxy. GOG games have no copy protection: Boxshelf starts it itself; updates stay in GOG Galaxy.",ubisoft:"Starts through Ubisoft Connect, so its sign-in and cloud saves work as usual.",ea:"Starts through the EA app, so its sign-in and cloud saves work as usual.",xbox:"An Xbox app game (Game Pass included). It starts like any Xbox app game, signed in with your Microsoft account."};
@@ -3735,7 +3737,11 @@ function applyUi_(u){
 function applyUiAll(){const u=uiNow();applyUi_({safeArea:u.safeArea,reduceMotion:u.reduceMotion,clock:u.clock,clock24:u.clock24,confirmButton:u.confirmButton,scrollSpeed:u.scrollSpeed,audioOut:u.audioOut,dimMinutes:u.dimMinutes})}
 function applyUi(partial){if(!partial||typeof partial!=="object")return;try{if(cfgInfo){const ui=cfgInfo.config.ui;for(const k of Object.keys(partial))ui[k]=partial[k]}applyUi_(partial)}catch(e){console.warn("applyUi",e)}}
 // Hidden games: the list for Settings (from the whole scan, hidden ones included) and the switch itself
-function hiddenList(){const hid=hiddenSet();if(!hid.size||!lastLib)return [];const out=[];lastLib.forEach(s=>(s.games||[]).forEach(g=>{if(hid.has(String(g.id)))out.push({id:String(g.id),title:g.title,system:s.name})}));return out.sort((a,b)=>a.system.localeCompare(b.system)||a.title.localeCompare(b.title))}
+function hiddenList(){const hid=hiddenSet();if(!hid.size||!lastLib)return [];const out=[];lastLib.forEach(s=>{
+  (s.games||[]).forEach(g=>{if(hid.has(String(g.id)))out.push({id:String(g.id),title:g.title,system:s.name})});
+  const emuId="emu-"+s.id;if(s.kind==="console"&&hid.has(emuId))out.push({id:emuId,title:`Open ${s.emulatorName||"emulator"}`,system:s.name});
+  const randomId="rnd-"+s.id;if((s.kind==="console"||s.kind==="steam")&&hid.has(randomId))out.push({id:randomId,title:"Surprise me",system:s.name});
+});return out.sort((a,b)=>a.system.localeCompare(b.system)||a.title.localeCompare(b.title))}
 async function setHidden(id,on){if(!cfgInfo||id==null)return false;id=String(id);on=!!on;const ui=cfgInfo.config.ui,list=new Set((Array.isArray(ui.hidden)?ui.hidden:[]).map(String));if(on===list.has(id))return true;
   if(on)list.add(id);else list.delete(id);ui.hidden=[...list];
   // the game in view is going away: the shelf lands on its neighbour instead of jumping to the start
@@ -3745,7 +3751,7 @@ async function setHidden(id,on){if(!cfgInfo||id==null)return false;id=String(id)
   // an open Settings screen would swap the object it is editing)
   if(lastLib){if(mode==="browse"||mode==="details")await refresh(true,lastLib);else pendingLib=lastLib}
   return true}
-function hideGame(g){if(!g||!isGame(g))return;const id=String(g.id),title=g.title;closeDetails(true);play_("back");rumble(0,.25,60);
+function hideGame(g){if(!isHideable(g))return;const id=String(g.id),title=g.title;closeDetails(true);play_("back");rumble(0,.25,60);
   setHidden(id,true).then(()=>{const fn=()=>{undoHide=null;$("toast").classList.remove("on");setHidden(id,false).then(()=>{toast(`${title} is back on the shelf`);play_("toast")})};
     const pad=showPad(),el=$("toast");toast("");undoHide=fn;el.textContent=`Hidden: ${title}  `;const b=document.createElement("button");b.type="button";b.className="t-undo";b.innerHTML=pad?`${glyph("sq")}<span>Undo</span>`:`<span class="g">U</span><span>Undo</span>`;b.addEventListener("click",e=>{e.stopPropagation();fn()});el.append(b);
     clearTimeout(toastT);toastT=setTimeout(()=>{el.classList.remove("on");if(undoHide===fn)undoHide=null},6000)})}
@@ -3769,7 +3775,7 @@ async function chooseGameEmu(g){if(!g||g.kind!=="rom"||!api.gameEmulator)return;
 (function(){const m=$("dManual");if(!m||$("dChooseManual"))return;const b=document.createElement("button");b.className="btn";b.type="button";b.id="dChooseManual";b.textContent="Choose manual…";b.title="Every manual found for this game, side by side: pick another language, region or scan, or add your own PDF";
   b.addEventListener("click",()=>{const g=curGame();if(!g||g.kind!=="rom"||!g.file||!api.manualStudio)return;const s=shelfFor(g);play_("panel");Setup.open({page:"manualgame",systemId:s.id,file:g.file,title:g.title})});$("dActEnd").before(b)})(); /* (beta.7: in the More menu) */
 // the Details panel's "Hide from shelf" button (made here: index.html belongs to the Settings work)
-(function(){const c=$("dActEnd");if(!c||$("dHide"))return;const b=document.createElement("button");b.className="btn";b.type="button";b.id="dHide";b.textContent="Hide from shelf";b.title="Hide this game from every shelf (undo it in Settings → Hidden games)";b.addEventListener("click",()=>hideGame(curGame()));c.before(b)})();
+(function(){const c=$("dActEnd");if(!c||$("dHide"))return;const b=document.createElement("button");b.className="btn";b.type="button";b.id="dHide";b.textContent="Hide from shelf";b.title="Hide this game or shelf tile (undo it in Settings → Hidden games & tiles)";b.addEventListener("click",()=>hideGame(curGame()));c.before(b)})();
 // (beta.7) Details → Collections: this game on shelves of your own (a page in Settings: a switch per collection, or a new one)
 (function(){const c=$("dActEnd");if(!c||$("dCols"))return;const b=document.createElement("button");b.className="btn";b.type="button";b.id="dCols";b.textContent="Collections";b.title="Put this game on shelves of your own";b.addEventListener("click",()=>{const g=curGame();if(!g||!isGame(g)||!window.Setup)return;closeDetails(true);Setup.open({page:"collections",id:g.id,title:g.title})});c.before(b)})();
 
@@ -3780,8 +3786,8 @@ window.Shelf={
   // (beta.5) Settings → Search for a cover: the picker again for that game, with SteamGridDB's covers for the typed name
   pcCoverSearch:(id,term)=>{const g=allShelves.flatMap(s=>s.items||[]).find(x=>x&&x.id===id);if(g)setTimeout(()=>pcCoverOpen(g,term),350)},
   // (beta.7) test hooks for the library pass: the filters on offer, picking one, the shelf's games and the one in view
-  _lib:{filters:()=>filterList(),filter:v=>pickSort(1,v),cur:()=>{const g=curGame();return g?{id:g.id,title:g.title,kind:g.kind}:null},
-    games:()=>(cur()?cur().items.filter(isGame):[]).map(g=>({id:g.id,year:yearOf(g),genres:genresOf(g)})),shelves:()=>shelves.map(s=>({id:s.id,name:s.name,col:!!s.col,ids:(s.items||[]).filter(isGame).map(g=>g.id),last:((s.items||[])[(s.items||[]).length-1]||{}).id||null}))},
+  _lib:{filters:()=>filterList(),filter:v=>pickSort(1,v),select:id=>{const i=cur()?cur().items.findIndex(g=>g.id===id):-1;if(i<0)return false;go(i);return true},cur:()=>{const g=curGame();return g?{id:g.id,title:g.title,kind:g.kind}:null},
+    games:()=>(cur()?cur().items.filter(isGame):[]).map(g=>({id:g.id,year:yearOf(g),genres:genresOf(g)})),shelves:()=>shelves.map(s=>({id:s.id,name:s.name,col:!!s.col,ids:(s.items||[]).filter(isGame).map(g=>g.id),tiles:(s.items||[]).filter(g=>g.kind==="random"||g.kind==="emulator").map(g=>({id:g.id,kind:g.kind,title:g.title})),last:((s.items||[])[(s.items||[]).length-1]||{}).id||null}))},
   // (beta.7) Settings changed your collections: their shelves are made again (the one you're on stays, if it still has games)
   previewStop:()=>{if(PV){pvStop();pvBackStop()}},setCollections:list=>{if(!cfgInfo||!Array.isArray(list))return;cfgInfo.config.ui.collections=list;const wasCol=cur()&&cur().col;buildHome();if(wasCol&&!shelves.includes(cur()))sel=0;renderTabs();if(cur()&&cur().col)build()},
   homeButton:()=>{if(qm.open){qmClose();return "closed"}qmOpen();return qm.open?"opened":"busy"},quickMenuOpen:()=>!!qm.open, // the Thor's Home key while Boxshelf is the Home app

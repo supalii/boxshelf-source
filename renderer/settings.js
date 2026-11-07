@@ -316,7 +316,7 @@ function build(){
     ],{when:()=>!!api.manualStudio,keys:"manual studio manuals booklet choose language region"}),
     H("Library"),
     F("Art library folder","ui.artLibrary","folder","One folder for all box art and manuals, so a fresh setup finds them instead of downloading again. Art already beside your games is copied there in the background (nothing is moved or deleted).",{ph:"Beside each console's games (a covers folder)",d:"",rescan:true,want:"dir",pickTitle:"Choose a folder for your box art and manuals",keys:"covers folder path"}),
-    M("Hidden games","art-hidden","Games you hid from their Details panel. Bring any of them back here.","Hidden from every shelf, the museum, shuffle and the idle show.",[],{when:()=>!!(window.Shelf&&Shelf.hiddenList),extra:hiddenRows,sub:()=>hidden&&hidden.length?{text:`${hidden.length} hidden`}:null}),
+    M("Hidden games & tiles","art-hidden","Games and shelf tiles you hid from their Details panel. Bring any of them back here.","Hidden from every shelf, the museum, shuffle and the idle show.",[],{when:()=>!!(window.Shelf&&Shelf.hiddenList),extra:hiddenRows,sub:()=>hidden&&hidden.length?{text:`${hidden.length} hidden`}:null}),
   ]},
   // (beta.8) video previews (app.js PV, main/previews.js, main/ytclips.js): a section of its own, easy to find (it was a
   // page inside Box art & manuals). Left out where previews don't exist yet (Android: see below SECTIONS).
@@ -472,10 +472,10 @@ async function emuAct(sys){const e=emuOf(sys);if(!e||e.state==="unsupported"){in
   if(emuAsk===sys&&api.launchEmulator){emuAsk=null;await save();toast(`Opening ${e.emulator||"the emulator"}…`);try{await api.launchEmulator(sys)}catch(err){toast(errMsg(err))}render();return}
   emuAsk=sys;infoOpen=true;play("open");render()}
 function hiddenRows(){if(!(window.Shelf&&Shelf.hiddenList))return [];const L=hidden||[];
-  if(!L.length)return [{t:"action",label:"No hidden games",btn:"—",info:"Hide a game from its Details panel (Hide). It shows up here so you can bring it back.",run:()=>{},ns:true,dim:true}];
+  if(!L.length)return [{t:"action",label:"Nothing hidden",btn:"—",info:"Hide a game or shelf tile from its Details panel. It shows up here so you can bring it back.",run:()=>{},ns:true,dim:true}];
   const names=Object.fromEntries(consoleList().map(c=>[c.id,c.name]));
   return L.map(g=>({t:"action",label:g.title||g.id,btn:"Unhide",info:"Hidden from every shelf, the museum, shuffle and the idle show. Unhide puts it back.",sub:()=>({text:names[g.system]||g.system||""}),ns:true,keys:"hidden hide",
-    run:async()=>{await save();shelf("setHidden",g.id,false);if(Array.isArray(cfg.ui.hidden))cfg.ui.hidden=cfg.ui.hidden.filter(x=>x!==g.id);hidden=(hidden||[]).filter(x=>x.id!==g.id);toast(`${g.title||"Game"} is back on its shelf`);bump()}}))}
+    run:async()=>{await save();shelf("setHidden",g.id,false);if(Array.isArray(cfg.ui.hidden))cfg.ui.hidden=cfg.ui.hidden.filter(x=>x!==g.id);hidden=(hidden||[]).filter(x=>x.id!==g.id);toast(`${g.title||"Item"} is back on the shelf`);bump()}}))}
 
 // one console's page
 function conPages(id){
